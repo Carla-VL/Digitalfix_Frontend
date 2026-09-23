@@ -1,308 +1,170 @@
-import {
-  ClipboardList,
-  Clock3,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowUpRight
-} from 'lucide-react'
-
-import { useMsal } from '@azure/msal-react'
-import KpiCard from '../components/KpiCard'
-
-const orders = [
-  {
-    id: 'OT-1048',
-    client: 'Edificio Andes',
-    service: 'Falla tablero eléctrico',
-    status: 'EN_EJECUCIÓN',
-    tech: 'J. Morales',
-    time: '18 min'
-  },
-  {
-    id: 'OT-1047',
-    client: 'Comercial Vega',
-    service: 'Corte de suministro',
-    status: 'ASIGNADA',
-    tech: 'C. Rojas',
-    time: '32 min'
-  },
-  {
-    id: 'OT-1046',
-    client: 'PyME Norte',
-    service: 'Revisión preventiva',
-    status: 'CERRADA',
-    tech: 'M. Soto',
-    time: '1 h 14 min'
-  },
-  {
-    id: 'OT-1045',
-    client: 'Bodega Central',
-    service: 'Cambio de luminarias',
-    status: 'CREADA',
-    tech: 'Sin asignar',
-    time: '7 min'
-  },
-]
+import { useState, useEffect } from 'react';
+import { useMsal } from '@azure/msal-react';
+import { api } from '../services/api';
+import { ArrowUpRight, AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react';
 
 export default function Dashboard() {
-  const { instance, accounts } = useMsal()
+  const { instance, accounts } = useMsal();
+  const account = instance.getActiveAccount() || accounts[0];
+  const userName = account?.name ? account.name.split(' ')[0] : 'AGUSTIN';
 
-  const account =
-    instance.getActiveAccount() ||
-    accounts[0]
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const firstName =
-    account?.name?.split(' ')[0] ||
-    'Usuario'
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await instance.acquireTokenSilent({
+          scopes: [`${import.meta.env.VITE_AZURE_CLIENT_ID}/.default`], 
+          account: accounts[0]
+        });
+        const data = await api.getWorkorders(response.accessToken);
+        setOrders(data || []);
+      } catch (error) {
+        console.error("Error al cargar el dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (accounts.length > 0) {
+      fetchDashboardData();
+    }
+  }, [instance, accounts]);
+
+  // Cálculos automáticos para los KPIs basados en Oracle
+  const activeOrdersCount = orders.filter(o => o.status && o.status.toUpperCase() !== 'CERRADA').length;
+  const closedOrdersCount = orders.filter(o => o.status && o.status.toUpperCase() === 'CERRADA').length;
+  const pendingAttentionCount = orders.filter(o => !o.technician && !o.tech).length;
+
+  // Conteo para las barras de estado de la red
+  const inExecution = orders.filter(o => o.status && o.status.toUpperCase().includes('EJECUCI')).length;
+  const assigned = orders.filter(o => o.status && o.status.toUpperCase() === 'ASIGNADA').length;
+  const created = orders.filter(o => o.status && o.status.toUpperCase() === 'CREADA').length;
+
+  // Últimas 5 órdenes para la tabla resumen
+  const recentOrders = orders.slice(0, 5);
 
   return (
     <>
-
       <div className="page-heading">
-
         <div>
-
-          <span className="eyebrow">
-            RESUMEN OPERACIONAL
-          </span>
-
-          <h1>
-            Hola, {firstName}
-          </h1>
-
-          <p>
-            Este es el estado actual de las operaciones de DigitalFix.
-          </p>
-
+          <span className="eyebrow">RESUMEN OPERACIONAL</span>
+          <h1>Hola, {userName.toUpperCase()}</h1>
+          <p>Este es el estado actual de las operaciones de DigitalFix.</p>
         </div>
-
-        <button className="btn secondary">
-          Ver actividad
-          <ArrowUpRight size={16}/>
+        <button className="btn secondary" onClick={() => window.location.reload()}>
+          Actualizar <ArrowUpRight size={16} />
         </button>
-
       </div>
 
-      <section className="kpi-grid">
+      <section className="summary-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
+        <article className="card" style={{ padding: '20px' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', marginBottom: '5px' }}>Órdenes activas</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{loading ? '...' : activeOrdersCount}</div>
+          <div style={{ fontSize: '12px', color: '#10b981', marginTop: '5px' }}>ordenes</div>
+        </article>
 
-        <KpiCard
-          title="Órdenes activas"
-          value="24"
-          helper="+8% vs. ayer"
-          icon={ClipboardList}
-        />
+        <article className="card" style={{ padding: '20px' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', marginBottom: '5px' }}>Tiempo promedio</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>42 min</div>
+          <div style={{ fontSize: '12px', color: '#10b981', marginTop: '5px' }}>-5 min esta semana</div>
+        </article>
 
-        <KpiCard
-          title="Tiempo promedio"
-          value="47 min"
-          helper="-5 min esta semana"
-          icon={Clock3}
-        />
+        <article className="card" style={{ padding: '20px' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', marginBottom: '5px' }}>Cerradas totales</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{loading ? '...' : closedOrdersCount}</div>
+          <div style={{ fontSize: '12px', color: '#10b981', marginTop: '5px' }}>Alta eficiencia SLA</div>
+        </article>
 
-        <KpiCard
-          title="Cerradas hoy"
-          value="31"
-          helper="92% dentro de SLA"
-          icon={CheckCircle2}
-        />
-
-        <KpiCard
-          title="Requieren atención"
-          value="5"
-          helper="2 sin técnico asignado"
-          icon={AlertTriangle}
-        />
-
+        <article className="card" style={{ padding: '20px' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', marginBottom: '5px' }}>Requieren atención</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f59e0b' }}>{loading ? '...' : pendingAttentionCount}</div>
+          <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '5px' }}>Sin técnico asignado</div>
+        </article>
       </section>
 
-      <section className="two-column">
-
-        <article className="card table-card">
-
-          <div className="section-title">
-
-            <div>
-
-              <h2>
-                Órdenes recientes
-              </h2>
-
-              <p>
-                Actividad de las últimas horas
-              </p>
-
-            </div>
-
-            <a href="/workorders">
-              Ver todas
-            </a>
-
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+        {/* Tabla de Órdenes Recientes */}
+        <article className="card table-card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <h3>Órdenes recientes</h3>
+            <span style={{ fontSize: '13px', color: '#3b82f6', cursor: 'pointer' }} onClick={() => window.location.href='/workorders'}>Ver todas</span>
           </div>
-
           <div className="table-wrap">
-
-            <table>
-
-              <thead>
-
-                <tr>
-                  <th>Orden</th>
-                  <th>Cliente</th>
-                  <th>Servicio</th>
-                  <th>Estado</th>
-                  <th>Técnico</th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {orders.map((o) => (
-
-                  <tr key={o.id}>
-
-                    <td>
-
-                      <strong>
-                        {o.id}
-                      </strong>
-
-                      <small>
-                        {o.time}
-                      </small>
-
-                    </td>
-
-                    <td>
-                      {o.client}
-                    </td>
-
-                    <td>
-                      {o.service}
-                    </td>
-
-                    <td>
-
-                      <span
-                        className={`badge ${o.status.toLowerCase()}`}
-                      >
-                        {o.status.replaceAll('_', ' ')}
-                      </span>
-
-                    </td>
-
-                    <td>
-                      {o.tech}
-                    </td>
-
+            {loading ? (
+              <p style={{ padding: '20px', textAlign: 'center' }}>Cargando actividad...</p>
+            ) : recentOrders.length === 0 ? (
+              <p style={{ padding: '20px', textAlign: 'center' }}>No hay actividad reciente.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Cliente</th>
+                    <th>Estado</th>
+                    <th>Técnico</th>
                   </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
-
+                </thead>
+                <tbody>
+                  {recentOrders.map((o, index) => (
+                    <tr key={o.id || index}>
+                      <td><strong>OT-{o.id || index + 1}</strong></td>
+                      <td>{o.clientName || o.client}</td>
+                      <td>
+                        <span className={`badge ${o.status && o.status.toUpperCase() === 'CERRADA' ? 'closed' : 'warning'}`}>
+                          {o.status || 'CREADA'}
+                        </span>
+                      </td>
+                      <td>{o.technician || o.tech || 'Sin asignar'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-
         </article>
 
-        <article className="card">
+        {/* Estado de la red / Distribución */}
+        <article className="card" style={{ padding: '20px' }}>
+          <h3 style={{ marginBottom: '15px' }}>Estado de la red</h3>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Distribución en tiempo real</p>
 
-          <div className="section-title">
-
-            <div>
-
-              <h2>
-                Estado de la red
-              </h2>
-
-              <p>
-                Distribución de órdenes activas
-              </p>
-
+          <div style={{ marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+              <span>En ejecución</span>
+              <b>{inExecution}</b>
             </div>
-
+            <div style={{ background: '#e2e8f0', height: '8px', borderRadius: '4px' }}>
+              <div style={{ background: '#3b82f6', width: `${Math.min(inExecution * 15, 100)}%`, height: '100%', borderRadius: '4px' }}></div>
+            </div>
           </div>
 
-          <div className="progress-list">
-
-            <div>
-
-              <span>
-                En ejecución <b>9</b>
-              </span>
-
-              <progress
-                value="9"
-                max="24"
-              />
-
+          <div style={{ marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+              <span>Asignadas</span>
+              <b>{assigned}</b>
             </div>
-
-            <div>
-
-              <span>
-                En desplazamiento <b>6</b>
-              </span>
-
-              <progress
-                value="6"
-                max="24"
-              />
-
+            <div style={{ background: '#e2e8f0', height: '8px', borderRadius: '4px' }}>
+              <div style={{ background: '#8b5cf6', width: `${Math.min(assigned * 15, 100)}%`, height: '100%', borderRadius: '4px' }}></div>
             </div>
-
-            <div>
-
-              <span>
-                Asignadas <b>5</b>
-              </span>
-
-              <progress
-                value="5"
-                max="24"
-              />
-
-            </div>
-
-            <div>
-
-              <span>
-                Creadas <b>4</b>
-              </span>
-
-              <progress
-                value="4"
-                max="24"
-              />
-
-            </div>
-
           </div>
 
-          <div className="mini-alert">
-
-            <AlertTriangle size={18}/>
-
-            <div>
-
-              <b>
-                2 órdenes próximas a vencer SLA
-              </b>
-
-              <span>
-                Revisa asignación y tiempos de llegada.
-              </span>
-
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+              <span>Creadas / Pendientes</span>
+              <b>{created}</b>
             </div>
-
+            <div style={{ background: '#e2e8f0', height: '8px', borderRadius: '4px' }}>
+              <div style={{ background: '#f59e0b', width: `${Math.min(created * 15, 100)}%`, height: '100%', borderRadius: '4px' }}></div>
+            </div>
           </div>
 
+          <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '8px', borderLeft: '4px solid #f59e0b', fontSize: '12px', color: '#92400e' }}>
+            <b>Sistema Operativo</b>.
+          </div>
         </article>
-
-      </section>
-
+      </div>
     </>
-  )
+  );
 }
