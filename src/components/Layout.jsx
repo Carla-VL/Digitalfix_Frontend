@@ -48,13 +48,12 @@ const links = [
     label: 'Auditoría',
     icon: ShieldCheck,
     roles: ['ADMIN', 'AUDITOR']
-  },
+  }
 ]
 
 export default function Layout({ children }) {
   const [open, setOpen] = useState(false)
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false)
-
   const [notificaciones, setNotificaciones] = useState([])
   const [cantidadNoLeidas, setCantidadNoLeidas] = useState(0)
   const [cargandoNotificaciones, setCargandoNotificaciones] = useState(false)
@@ -66,7 +65,7 @@ export default function Layout({ children }) {
     instance.getActiveAccount() ||
     accounts[0]
 
-  // Obtener token de Microsoft para consultar el BFF
+  // Obtener token de Microsoft
   const obtenerToken = async () => {
     if (!account) {
       throw new Error('No hay una sesión activa.')
@@ -77,11 +76,10 @@ export default function Layout({ children }) {
       account
     })
 
-    const token = respuesta.accessToken
+    return respuesta.accessToken
+  }
 
-    return token
-
-  // Consultar notificaciones del usuario autenticado
+  // Consultar notificaciones
   const cargarNotificaciones = async () => {
     if (!account) return
 
@@ -94,11 +92,18 @@ export default function Layout({ children }) {
       const lista = await api.getNotificaciones(token)
       const cantidad = await api.getNotificacionesNoLeidas(token)
 
-      setNotificaciones(Array.isArray(lista) ? lista : [])
-      setCantidadNoLeidas(Number(cantidad) || 0)
+      setNotificaciones(
+        Array.isArray(lista) ? lista : []
+      )
 
+      setCantidadNoLeidas(
+        Number(cantidad) || 0
+      )
     } catch (error) {
-      console.error('Error al consultar notificaciones:', error)
+      console.error(
+        'Error al consultar notificaciones:',
+        error
+      )
 
       setErrorNotificaciones(
         'No se pudieron cargar las notificaciones.'
@@ -126,9 +131,11 @@ export default function Layout({ children }) {
       setCantidadNoLeidas((cantidad) =>
         Math.max(0, cantidad - 1)
       )
-
     } catch (error) {
-      console.error('Error al marcar notificación:', error)
+      console.error(
+        'Error al marcar notificación:',
+        error
+      )
 
       setErrorNotificaciones(
         'No se pudo marcar la notificación como leída.'
@@ -136,26 +143,19 @@ export default function Layout({ children }) {
     }
   }
 
-  // Datos reales del usuario autenticado
-  const name =
-    account?.name ||
-    'Usuario'
-
-  const email =
-    account?.username ||
-    ''
+  // Datos del usuario autenticado
+  const name = account?.name || 'Usuario'
+  const email = account?.username || ''
 
   // Roles de Microsoft Entra ID
-  const roles =
-    (account?.idTokenClaims?.roles || [])
-      .map(role => role.toUpperCase())
+  const roles = (account?.idTokenClaims?.roles || [])
+    .map((role) => role.toUpperCase())
 
   const primaryRole =
     roles.length > 0
       ? roles[0]
       : 'USUARIO MICROSOFT'
 
-  // Mantener comportamiento actual de los roles
   const visibleLinks =
     roles.length === 0
       ? links
@@ -165,11 +165,12 @@ export default function Layout({ children }) {
           )
         )
 
+  // Cerrar sesión
   const logout = async () => {
     try {
       await instance.logoutRedirect({
         account,
-        postLogoutRedirectUri: 'http://localhost:5173/login'
+        postLogoutRedirectUri: `${window.location.origin}/login`
       })
     } catch (error) {
       console.error(
@@ -181,15 +182,10 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-shell">
-
       <aside
-        className={`sidebar ${
-          open ? 'sidebar-open' : ''
-        }`}
+        className={`sidebar ${open ? 'sidebar-open' : ''}`}
       >
-
         <div className="brand">
-
           <div className="brand-mark">
             <Zap size={22} />
           </div>
@@ -198,7 +194,6 @@ export default function Layout({ children }) {
             <strong>DigitalFix</strong>
             <span>Field Service</span>
           </div>
-
         </div>
 
         <button
@@ -210,48 +205,31 @@ export default function Layout({ children }) {
         </button>
 
         <nav>
-
-          {visibleLinks.map(
-            ({ to, label, icon: Icon }) => (
-
-              <NavLink
-                key={to}
-                to={to}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `nav-link ${
-                    isActive ? 'active' : ''
-                  }`
-                }
-              >
-
-                <Icon size={19} />
-
-                {label}
-
-              </NavLink>
-
-            )
-          )}
-
+          {visibleLinks.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }
+            >
+              <Icon size={19} />
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="sidebar-user">
-
           <div className="avatar">
             {name.charAt(0).toUpperCase()}
           </div>
 
           <div className="user-meta">
-
             <strong>{name}</strong>
-
             <span>{primaryRole}</span>
 
-            {email && (
-              <small>{email}</small>
-            )}
-
+            {email && <small>{email}</small>}
           </div>
 
           <button
@@ -261,15 +239,11 @@ export default function Layout({ children }) {
           >
             <LogOut size={18} />
           </button>
-
         </div>
-
       </aside>
 
       <div className="main-area">
-
         <header className="topbar">
-
           <button
             className="menu-button"
             onClick={() => setOpen(true)}
@@ -279,15 +253,12 @@ export default function Layout({ children }) {
           </button>
 
           <div>
-
             <strong>
               Plataforma de mantenimiento eléctrico
             </strong>
-
             <span>
               Operación y trazabilidad en tiempo real
             </span>
-
           </div>
 
           <div
@@ -297,13 +268,7 @@ export default function Layout({ children }) {
               gap: '14px'
             }}
           >
-
-            <div
-              style={{
-                position: 'relative'
-              }}
-            >
-
+            <div style={{ position: 'relative' }}>
               <button
                 type="button"
                 className="icon-button"
@@ -359,11 +324,11 @@ export default function Layout({ children }) {
                     color: '#1f2937',
                     border: '1px solid #e5e7eb',
                     borderRadius: '12px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    boxShadow:
+                      '0 8px 24px rgba(0,0,0,0.15)',
                     zIndex: 1000
                   }}
                 >
-
                   <strong>Notificaciones</strong>
 
                   {cantidadNoLeidas > 0 && (
@@ -379,7 +344,6 @@ export default function Layout({ children }) {
                   )}
 
                   {cargandoNotificaciones ? (
-
                     <p
                       style={{
                         fontSize: '13px',
@@ -388,9 +352,7 @@ export default function Layout({ children }) {
                     >
                       Cargando notificaciones...
                     </p>
-
                   ) : errorNotificaciones ? (
-
                     <p
                       style={{
                         color: '#dc2626',
@@ -400,9 +362,7 @@ export default function Layout({ children }) {
                     >
                       {errorNotificaciones}
                     </p>
-
                   ) : notificaciones.length === 0 ? (
-
                     <p
                       style={{
                         fontSize: '13px',
@@ -411,9 +371,7 @@ export default function Layout({ children }) {
                     >
                       No tienes notificaciones por ahora.
                     </p>
-
                   ) : (
-
                     <div
                       style={{
                         marginTop: '12px',
@@ -421,18 +379,18 @@ export default function Layout({ children }) {
                         overflowY: 'auto'
                       }}
                     >
-
                       {notificaciones.map((notificacion) => (
-
                         <div
                           key={notificacion.id}
                           style={{
                             padding: '10px 0',
-                            borderBottom: '1px solid #e5e7eb',
-                            opacity: notificacion.leida ? 0.6 : 1
+                            borderBottom:
+                              '1px solid #e5e7eb',
+                            opacity: notificacion.leida
+                              ? 0.6
+                              : 1
                           }}
                         >
-
                           <strong
                             style={{
                               fontSize: '13px'
@@ -451,11 +409,12 @@ export default function Layout({ children }) {
                           </p>
 
                           {!notificacion.leida && (
-
                             <button
                               type="button"
                               onClick={() =>
-                                marcarComoLeida(notificacion.id)
+                                marcarComoLeida(
+                                  notificacion.id
+                                )
                               }
                               style={{
                                 background: 'none',
@@ -468,35 +427,25 @@ export default function Layout({ children }) {
                             >
                               Marcar como leída
                             </button>
-
                           )}
-
                         </div>
-
                       ))}
-
                     </div>
-
                   )}
-
                 </div>
               )}
-
             </div>
 
             <div className="status-pill">
               <span></span>
               Sistema operativo
             </div>
-
           </div>
-
         </header>
 
         <main className="content">
           {children}
         </main>
-
       </div>
 
       {open && (
@@ -505,7 +454,6 @@ export default function Layout({ children }) {
           onClick={() => setOpen(false)}
         />
       )}
-
     </div>
   )
 }
