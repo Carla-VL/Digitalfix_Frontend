@@ -13,7 +13,7 @@ import {
   Bell
 } from 'lucide-react'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { api } from '../services/api'
 import { loginRequest } from '../auth/msalConfig'
@@ -79,7 +79,7 @@ export default function Layout({ children }) {
     return respuesta.accessToken
   }
 
-  // Consultar notificaciones
+  // Consultar notificaciones cuando se abre la campanita
   const cargarNotificaciones = async () => {
     if (!account) return
 
@@ -113,7 +113,65 @@ export default function Layout({ children }) {
     }
   }
 
-  // Marcar una notificación como leída
+  // NUEVO: Actualizar automaticamente el contador
+  // sin necesidad de abrir la campanita
+  useEffect(() => {
+    if (!account) {
+      setCantidadNoLeidas(0)
+      return
+    }
+
+    let activo = true
+    let consultando = false
+
+    const actualizarContador = async () => {
+      if (consultando || !activo) return
+
+      consultando = true
+
+      try {
+        const respuesta = await instance.acquireTokenSilent({
+          ...loginRequest,
+          account
+        })
+
+        const cantidad = await api.getNotificacionesNoLeidas(
+          respuesta.accessToken
+        )
+
+        if (activo) {
+          setCantidadNoLeidas(Number(cantidad) || 0)
+        }
+      } catch (error) {
+        if (activo) {
+          console.error(
+            'Error al actualizar contador de notificaciones:',
+            error
+          )
+        }
+      } finally {
+        consultando = false
+      }
+    }
+
+    // Primera consulta al ingresar
+    actualizarContador()
+
+    // Consultar nuevamente cada 5 segundos
+    const intervalo = setInterval(
+      actualizarContador,
+      5000
+    )
+
+    // Limpiar el intervalo al salir del componente
+    // o cambiar de cuenta
+    return () => {
+      activo = false
+      clearInterval(intervalo)
+    }
+  }, [account?.homeAccountId, instance])
+
+  // Marcar una notificacion como leida
   const marcarComoLeida = async (id) => {
     try {
       const token = await obtenerToken()
@@ -165,7 +223,7 @@ export default function Layout({ children }) {
           )
         )
 
-  // Cerrar sesión
+  // Cerrar sesion
   const logout = async () => {
     try {
       await instance.logoutRedirect({
@@ -228,7 +286,6 @@ export default function Layout({ children }) {
           <div className="user-meta">
             <strong>{name}</strong>
             <span>{primaryRole}</span>
-
             {email && <small>{email}</small>}
           </div>
 
